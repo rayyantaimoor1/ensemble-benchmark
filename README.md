@@ -44,7 +44,8 @@ scikit-learn's OpenML fetcher if unavailable) and cached locally under `data/`.
 ensemble-benchmark/
 ├── data/                      # raw/cached dataset (gitignored, auto-downloaded)
 ├── notebooks/
-│   └── ensemble_benchmark_analysis.ipynb   # narrative walkthrough of the full analysis
+│   ├── ensemble_benchmark_analysis.ipynb   # local Jupyter walkthrough
+│   └── colab_ensemble_benchmark.ipynb       # Google Colab version (clones/uploads repo first)
 ├── src/
 │   ├── data_pipeline.py       # download, split, scale, subsample
 │   ├── models.py               # model factory + hyperparameter search spaces
@@ -129,6 +130,35 @@ It opens in your browser at `http://localhost:8501` and gives you: a live KPI su
 an interactive speed-vs-performance scatter, scalability curves with a metric selector,
 the loss-convergence figure, per-model feature-importance bar charts, and best hyperparameters
 (if you ran `--tune`). Re-run `main.py` and refresh the page to update it with new numbers.
+
+### Running on Google Colab
+
+If your machine is running low on RAM or has a slow connection (see Troubleshooting below),
+Colab is a solid alternative — free tier gives ~12GB RAM and a fast network.
+
+1. Push this project to a GitHub repo (if you haven't already):
+   ```bash
+   git remote add origin https://github.com/<your-username>/ensemble-benchmark.git
+   git push -u origin master
+   ```
+2. Go to [colab.research.google.com](https://colab.research.google.com), choose
+   **File → Upload notebook**, and upload `notebooks/colab_ensemble_benchmark.ipynb`
+   from this project (or open it directly from GitHub via **File → Open notebook → GitHub**
+   once it's pushed).
+3. In the first code cell, replace `REPO_URL` with your repo's URL.
+4. Run cells top to bottom (**Runtime → Run all**, or step through with Shift+Enter).
+   The notebook clones the repo, installs dependencies, runs the full benchmark, and
+   displays all 4 required plots inline.
+5. The last cell zips up `results/` and downloads it to your computer, so you keep a copy
+   of your figures and metrics CSVs.
+
+No GitHub yet? The notebook also has an upload-the-zip option (Cell 2, Option B) — upload
+`ensemble-benchmark.zip` directly instead of cloning.
+
+**Note:** this is a separate notebook from `notebooks/ensemble_benchmark_analysis.ipynb` —
+that one assumes you're already inside the cloned repo with `../src` on the path (the
+normal local-Jupyter setup); the Colab version handles cloning/uploading and uses `src`
+(not `../src`) since Colab cells run from the repo root.
 
 ### Running tests
 
