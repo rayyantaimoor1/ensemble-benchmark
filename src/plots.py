@@ -82,7 +82,16 @@ def plot_loss_convergence(curves: dict, filename="loss_convergence_profiles.png"
     curves: dict of {model_name: (train_losses_list, val_losses_list)}
     Produces a side-by-side grid of learning curves, one subplot per model,
     to diagnose overfitting (divergence between train and val loss).
+
+    If curves is empty (e.g. every model ran out of memory), prints a
+    warning and returns without creating a figure, rather than crashing
+    on a 0-row subplot grid.
     """
+    if not curves:
+        print("[plots] No learning curves available (all models may have hit "
+              "memory limits) -- skipping loss_convergence_profiles.png")
+        return
+
     n_models = len(curves)
     n_cols = 2
     n_rows = (n_models + 1) // n_cols

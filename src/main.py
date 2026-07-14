@@ -93,8 +93,13 @@ def main():
     fresh_models = get_baseline_models()
     curves = {}
     for name, model in fresh_models.items():
-        train_loss, val_loss = get_learning_curve(name, model, X_train, y_train, X_val, y_val)
-        curves[name] = (train_loss, val_loss)
+        try:
+            train_loss, val_loss = get_learning_curve(name, model, X_train, y_train, X_val, y_val)
+            if train_loss and val_loss:
+                curves[name] = (train_loss, val_loss)
+        except MemoryError:
+            print(f"[main]   SKIPPED learning curve for {name}: ran out of memory.")
+            continue
 
     # 6. Feature importances - refit each tuned/baseline model on full train set
     print("\n=== Feature importances ===")

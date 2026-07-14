@@ -171,15 +171,36 @@ def get_learning_curve(model_name, model, X_train, y_train, X_val, y_val, max_st
         return train_losses, val_losses
 
     if model_name == "RandomForest":
+        import gc
         from sklearn.base import clone as _clone
+
         stages = max_stages or [10, 25, 50, 75, 100, 150, 200]
         train_losses, val_losses = [], []
+
+        # warm_start=True lets the forest grow incrementally (10 trees, then
+        # +15 more, etc.) instead of refitting from n_estimators=0 each time.
+        # This is both much faster and uses far less peak memory than the
+        # previous approach of cloning and refitting a brand-new forest at
+        # every stage (which briefly held 2 full forests in memory at once
+        # on the largest stage and is what caused the MemoryError).
+        m = _clone(model)
+        m.set_params(warm_start=True, n_estimators=stages[0])
+
         for n in stages:
-            m = _clone(model)
             m.set_params(n_estimators=n)
-            m.fit(X_train, y_train)
+            try:
+                m.fit(X_train, y_train)
+            except MemoryError:
+                print(
+                    f"[benchmark] RandomForest learning curve stopped at "
+                    f"n_estimators={n} (out of memory). Returning the "
+                    f"stages completed so far."
+                )
+                break
             train_losses.append(log_loss(y_train, m.predict_proba(X_train), labels=m.classes_))
             val_losses.append(log_loss(y_val, m.predict_proba(X_val), labels=m.classes_))
+            gc.collect()
+
         return train_losses, val_losses
 
     raise ValueError(f"Unknown model_name: {model_name}")
