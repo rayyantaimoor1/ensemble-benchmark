@@ -23,6 +23,16 @@ def get_baseline_models(n_classes: int = 7):
     Returns a dict of {name: unfitted estimator} using sensible baseline
     hyperparameters (i.e. before tuning). Used for the initial "unified
     conditions" comparison in Phase 2.
+
+    Note: GradientBoosting uses a smaller n_estimators/subsample than the
+    other three models. Unlike XGBoost/LightGBM (histogram-based, highly
+    memory-efficient) or RandomForest (embarrassingly parallel, trees are
+    independent), sklearn's GradientBoostingClassifier builds trees
+    sequentially without histogram binning, so its peak memory on 400k+
+    rows with 7 classes can exceed what smaller machines (e.g. 8GB RAM
+    laptops) have available. This asymmetry is itself part of RQ1
+    (computational efficiency) -- it's expected that GradientBoosting
+    looks the least scalable of the four; that's the finding, not a bug.
     """
     return {
         "RandomForest": RandomForestClassifier(
@@ -32,9 +42,10 @@ def get_baseline_models(n_classes: int = 7):
             n_jobs=N_JOBS,
         ),
         "GradientBoosting": GradientBoostingClassifier(
-            n_estimators=200,
+            n_estimators=100,
             max_depth=3,
             learning_rate=0.1,
+            subsample=0.8,
             random_state=RANDOM_STATE,
         ),
         "XGBoost": XGBClassifier(

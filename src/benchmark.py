@@ -7,6 +7,7 @@ macro-F1), plus the scalability sweep across increasing training-set
 sizes (10k / 50k / 100k / 500k rows).
 """
 
+import gc
 import time
 import tracemalloc
 import numpy as np
@@ -73,16 +74,32 @@ def run_full_benchmark(models: dict, X_train, y_train, X_test, y_test):
     """
     Runs benchmark_model for every model in `models` (dict of name -> estimator)
     and returns a results DataFrame, one row per model.
+
+    Calls gc.collect() between models to release memory from the previous
+    model's fitted trees before starting the next one, and catches
+    MemoryError so a single model running out of RAM (most likely
+    GradientBoosting on machines with <16GB RAM) doesn't abort the whole
+    benchmark -- that model is skipped with a warning instead.
     """
     rows = []
     for name, model in models.items():
         print(f"[benchmark] Training {name} on {len(X_train):,} rows...")
-        row = benchmark_model(name, model, X_train, y_train, X_test, y_test)
+        try:
+            row = benchmark_model(name, model, X_train, y_train, X_test, y_test)
+        except MemoryError as e:
+            print(
+                f"[benchmark]   SKIPPED {name}: ran out of memory ({e}). "
+                f"Try reducing n_estimators for this model in models.py, "
+                f"or run on a machine with more RAM."
+            )
+            continue
         rows.append(row)
         print(
             f"[benchmark]   done in {row['train_time_sec']:.2f}s | "
             f"acc={row['accuracy']:.4f} | macro-F1={row['macro_f1']:.4f}"
         )
+        del model
+        gc.collect()
     return pd.DataFrame(rows)
 
 

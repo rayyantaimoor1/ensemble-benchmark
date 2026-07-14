@@ -137,7 +137,29 @@ pip install pytest
 pytest tests/ -v
 ```
 
-## 8. Results
+## 8. Troubleshooting
+
+**`MemoryError` / `numpy._core._exceptions._ArrayMemoryError` during `GradientBoosting`
+training on the full ~400k+ row training set.** This is the expected weak point of the
+comparison, not a bug: unlike XGBoost/LightGBM (histogram-based) or Random Forest
+(parallel, independent trees), scikit-learn's `GradientBoostingClassifier` builds trees
+sequentially without histogram binning, so its memory footprint on large multi-class data
+is the highest of the four — machines with 8GB RAM can run out of memory on it. The
+pipeline now catches this automatically: it prints a warning, skips that model, and
+continues with the rest (see `run_full_benchmark` in `src/benchmark.py`). If you want
+GradientBoosting to actually finish on a small-RAM machine, lower `n_estimators` (e.g. to
+50) for it in `src/models.py`, or close other memory-heavy applications first.
+
+**`ucimlrepo fetch failed ... falling back to sklearn/OpenML`.** Not an error — this is the
+built-in fallback working as intended when the primary download source times out. The
+dataset still downloads via scikit-learn's OpenML mirror instead.
+
+**Slow/interrupted package downloads with `Connection timed out` during
+`pip install -r requirements.txt`.** pip automatically resumes and retries; as long as the
+install ends with `Successfully installed ...`, it worked. Just a symptom of a slow or
+unstable connection, not a real failure.
+
+## 9. Results
 
 *Run `python src/main.py` and paste your own numbers/figures here once you have them —
 results depend on your machine's CPU/RAM and whether tuning was enabled.*
@@ -149,10 +171,10 @@ results depend on your machine's CPU/RAM and whether tuning was enabled.*
 | XGBoost | | | |
 | LightGBM | | | |
 
-## 9. Tech Stack
+## 10. Tech Stack
 
 Python · scikit-learn · XGBoost · LightGBM · pandas · matplotlib · seaborn
 
-## 10. License
+## 11. License
 
 MIT — see [LICENSE](LICENSE).
