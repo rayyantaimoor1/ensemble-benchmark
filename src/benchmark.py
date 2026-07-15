@@ -222,3 +222,55 @@ def get_feature_importances(model_name, fitted_model, feature_names):
         importances = importances / importances.sum()
 
     return pd.Series(importances, index=feature_names).sort_values(ascending=False)
+
+
+def run_kfold_cv(models: dict, X, y, n_splits=5, random_state=42):
+    """
+    Runs stratified k-fold cross-validation for each model in `models`
+    (dict of name -> unfitted estimator), returning a DataFrame with one
+    row per model: mean and std of accuracy and macro-F1 across folds.
+
+    Uses StratifiedKFold to preserve class-imbalance ratios in each fold.
+    Clones each model fresh per fold via sklearn.base.clone so no fitted
+    state leaks between folds. Catches MemoryError per model (same
+    pattern as run_full_benchmark) so one model running out of RAM
+    doesn't abort the whole CV run.
+    """
+    from sklearn.model_selection import StratifiedKFold
+    from sklearn.base import clone
+
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    X_df = X if hasattr(X, "iloc") else pd.DataFrame(X)
+    y_arr = y.values if hasattr(y, "values") else np.asarray(y)
+
+    rows = []
+    for name, model in models.items():
+        print(f"[kfold] Running {n_splits}-fold CV for {name}...")
+        fold_acc, fold_f1 = [], []
+        try:
+            for fold_idx, (train_idx, val_idx) in enumerate(skf.split(X_df, y_arr), start=1):
+                m = clone(model)
+                m.fit(X_df.iloc[train_idx], y_arr[train_idx])
+                preds = m.predict(X_df.iloc[val_idx])
+                fold_acc.append(accuracy_score(y_arr[val_idx], preds))
+                fold_f1.append(f1_score(y_arr[val_idx], preds, average="macro"))
+                del m
+                gc.collect()
+        except MemoryError:
+            print(f"[kfold]   SKIPPED {name}: ran out of memory.")
+            continue
+
+        rows.append({
+            "model": name,
+            "cv_accuracy_mean": np.mean(fold_acc),
+            "cv_accuracy_std": np.std(fold_acc),
+            "cv_macro_f1_mean": np.mean(fold_f1),
+            "cv_macro_f1_std": np.std(fold_f1),
+            "n_splits": n_splits,
+        })
+        print(
+            f"[kfold]   acc={np.mean(fold_acc):.4f}±{np.std(fold_acc):.4f} | "
+            f"macro-F1={np.mean(fold_f1):.4f}±{np.std(fold_f1):.4f}"
+        )
+
+    return pd.DataFrame(rows)

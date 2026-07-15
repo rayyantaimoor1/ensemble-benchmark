@@ -78,6 +78,12 @@ conditions first, then (optionally) tuned via `RandomizedSearchCV` with stratifi
 latency, Accuracy, and Macro F1 — recorded both on the full training set and across a
 scalability sweep at 10k / 50k / 100k / 500k rows.
 
+**Phase 4 — K-fold cross-validation:** stratified 5-fold CV (default; configurable) on the
+training set for each model, reporting mean ± standard deviation of Accuracy and Macro F1
+across folds — a more robust estimate of generalization performance than a single train/test
+split, and a check on how consistent each model's performance is across different data
+partitions.
+
 ## 6. Visual Deliverables
 
 | Figure | What it shows |
@@ -86,6 +92,7 @@ scalability sweep at 10k / 50k / 100k / 500k rows.
 | `scalability_curves.png` | Training time vs. training-set size, one line per model |
 | `loss_convergence_profiles.png` | Train vs. validation log-loss across boosting iterations / tree count, per model |
 | `feature_importance_divergence.png` | Top-N feature importances per model, side by side |
+| `kfold_cv_results.png` | Mean Macro F1 ± std across k folds, one bar per model |
 
 ## 7. Setup & Usage
 
@@ -103,6 +110,9 @@ python src/main.py --tune --tune-iter 20
 
 # 4. Customize the scalability sweep row sizes
 python src/main.py --sweep-sizes 10000 50000 100000 500000
+
+# 5. Customize the number of cross-validation folds (default: 5)
+python src/main.py --kfold 10
 ```
 
 Or open the notebook for a narrated walkthrough:
@@ -123,13 +133,19 @@ streamlit run app.py
 ```
 
 **Windows shortcut:** double-click `run_dashboard.bat` in the project root instead. It
-activates a `venv`/`.venv` if one exists, installs `requirements.txt` automatically if
-Streamlit isn't found, and then starts the dashboard — no terminal typing required.
+tries to activate a conda environment named `ensemble-bench` first (matching the setup
+instructions above), falls back to a local `venv`/`.venv` if no conda env is found,
+installs `requirements.txt` automatically if Streamlit isn't already there, and then
+starts the dashboard via `python -m streamlit` — no terminal typing required. If your
+conda environment has a different name, either rename it to `ensemble-bench`, or just run
+`conda activate <your-env-name>` in Anaconda Prompt and then `streamlit run app.py`
+directly from that window instead of using the `.bat` file.
 
 It opens in your browser at `http://localhost:8501` and gives you: a live KPI summary,
-an interactive speed-vs-performance scatter, scalability curves with a metric selector,
-the loss-convergence figure, per-model feature-importance bar charts, and best hyperparameters
-(if you ran `--tune`). Re-run `main.py` and refresh the page to update it with new numbers.
+an interactive speed-vs-performance scatter, k-fold cross-validation results with error bars,
+scalability curves with a metric selector, the loss-convergence figure, per-model
+feature-importance bar charts, and best hyperparameters (if you ran `--tune`). Re-run
+`main.py` and refresh the page to update it with new numbers.
 
 ### Running on Google Colab
 

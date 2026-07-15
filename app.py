@@ -72,6 +72,7 @@ results_df = load_csv("full_benchmark_results.csv")
 sweep_df = load_csv("scalability_sweep_results.csv")
 best_params = load_json("best_params.json")
 importances = load_feature_importances()
+kfold_df = load_csv("kfold_cv_results.csv")
 
 
 # ---------------------------------------------------------------------------
@@ -139,8 +140,9 @@ st.dataframe(
 # Tabs for the 4 deliverables + extras
 # ---------------------------------------------------------------------------
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "Speed vs. Performance",
+    "K-Fold CV",
     "Scalability",
     "Loss Convergence",
     "Feature Importance",
@@ -162,6 +164,35 @@ with tab1:
     st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
+    st.markdown("#### K-Fold Cross-Validation")
+    if kfold_df is None:
+        st.info("No k-fold CV results found — run `main.py` (or the notebook's k-fold cell) to generate `kfold_cv_results.csv`.")
+    else:
+        kfold_filtered = kfold_df[kfold_df["model"].isin(selected_models)]
+        n_splits = kfold_filtered["n_splits"].iloc[0] if "n_splits" in kfold_filtered.columns and len(kfold_filtered) else "k"
+        st.caption(f"Mean ± standard deviation of {metric_choice.replace('_', ' ')} across {n_splits} folds.")
+
+        cv_metric_col = "cv_macro_f1_mean" if metric_choice == "macro_f1" else "cv_accuracy_mean"
+        cv_std_col = "cv_macro_f1_std" if metric_choice == "macro_f1" else "cv_accuracy_std"
+
+        fig = go.Figure()
+        for _, row in kfold_filtered.iterrows():
+            fig.add_trace(go.Bar(
+                x=[row["model"]], y=[row[cv_metric_col]],
+                error_y=dict(type="data", array=[row[cv_std_col]]),
+                marker_color=MODEL_COLORS.get(row["model"], "#666"),
+                name=row["model"], showlegend=False,
+            ))
+        fig.update_layout(
+            yaxis_title=f"{metric_choice.replace('_', ' ').title()} (mean ± std)",
+            xaxis_title="Model",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        with st.expander("Raw k-fold CV data"):
+            st.dataframe(kfold_filtered.round(4), use_container_width=True)
+
+with tab3:
     st.markdown("#### Scalability Curves")
     if sweep_df is None:
         st.info("Scalability sweep results not found — run `main.py` to generate `scalability_sweep_results.csv`.")
@@ -181,7 +212,7 @@ with tab2:
         with st.expander("Raw sweep data"):
             st.dataframe(sweep_filtered, use_container_width=True)
 
-with tab3:
+with tab4:
     st.markdown("#### Loss Convergence Profiles")
     st.info(
         "Learning curves are computed live (not cached to CSV by default). "
@@ -194,7 +225,7 @@ with tab3:
     else:
         st.warning("Figure not found yet — run `python src/main.py` to generate it.")
 
-with tab4:
+with tab5:
     st.markdown("#### Feature Importance Divergence")
     if not importances:
         st.info("No feature importance CSVs found — run `main.py` to generate `feature_importance_<model>.csv` files.")
@@ -227,7 +258,7 @@ with tab4:
                     fig.update_layout(yaxis={"categoryorder": "total ascending"}, height=350)
                     st.plotly_chart(fig, use_container_width=True)
 
-with tab5:
+with tab6:
     st.markdown("#### Best Hyperparameters (from tuning)")
     if best_params is None:
         st.info(

@@ -123,7 +123,16 @@ def plot_feature_importance_divergence(importances: dict, top_n=15,
     importances: dict of {model_name: pd.Series(feature -> importance)}
     Produces a grid of horizontal bar charts, one per model, each showing
     its top_n most important features.
+
+    If importances is empty (e.g. every model ran out of memory), prints a
+    warning and returns without creating a figure, rather than crashing on
+    a 0-row subplot grid.
     """
+    if not importances:
+        print("[plots] No feature importances available (all models may have "
+              "hit memory limits) -- skipping feature_importance_divergence.png")
+        return
+
     n_models = len(importances)
     n_cols = 2
     n_rows = (n_models + 1) // n_cols
@@ -142,4 +151,26 @@ def plot_feature_importance_divergence(importances: dict, top_n=15,
 
     fig.suptitle("Feature Importance Divergence Across Ensemble Paradigms", y=1.02, fontsize=18)
     fig.tight_layout()
+    _save(fig, filename)
+
+
+def plot_kfold_cv(cv_df, filename="kfold_cv_results.png"):
+    """
+    Bar chart of mean macro-F1 (with error bars for std across folds),
+    one bar per model, from run_kfold_cv's output DataFrame.
+    """
+    if cv_df is None or cv_df.empty:
+        print("[plots] No k-fold CV results available -- skipping kfold_cv_results.png")
+        return
+
+    fig, ax = plt.subplots(figsize=(9, 7))
+    colors = [MODEL_COLORS.get(m, "gray") for m in cv_df["model"]]
+    ax.bar(
+        cv_df["model"], cv_df["cv_macro_f1_mean"], yerr=cv_df["cv_macro_f1_std"],
+        color=colors, edgecolor="black", linewidth=1.2, capsize=8,
+    )
+    ax.set_ylabel("Macro F1-Score (mean ± std across folds)")
+    n_splits = cv_df["n_splits"].iloc[0] if "n_splits" in cv_df.columns else "k"
+    ax.set_title(f"{n_splits}-Fold Cross-Validation Results")
+    ax.grid(True, axis="y", alpha=0.3)
     _save(fig, filename)

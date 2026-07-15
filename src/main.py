@@ -33,6 +33,7 @@ from benchmark import (
     run_scalability_sweep,
     get_learning_curve,
     get_feature_importances,
+    run_kfold_cv,
 )
 from tuning import tune_all_models
 from plots import (
@@ -40,6 +41,7 @@ from plots import (
     plot_scalability_curves,
     plot_loss_convergence,
     plot_feature_importance_divergence,
+    plot_kfold_cv,
 )
 
 METRICS_DIR = os.path.join(os.path.dirname(__file__), "..", "results", "metrics")
@@ -53,6 +55,7 @@ def main():
         "--sweep-sizes", type=int, nargs="+", default=[10_000, 50_000, 100_000, 500_000],
         help="Row counts for the scalability sweep",
     )
+    parser.add_argument("--kfold", type=int, default=5, help="Number of folds for k-fold CV")
     args = parser.parse_args()
 
     os.makedirs(METRICS_DIR, exist_ok=True)
@@ -109,12 +112,20 @@ def main():
         importances[name] = get_feature_importances(name, fitted, X_train.columns)
         importances[name].to_csv(os.path.join(METRICS_DIR, f"feature_importance_{name}.csv"))
 
-    # 7. Plots
+    # 7. K-fold cross-validation (uses fresh baseline models, full training set)
+    print(f"\n=== {args.kfold}-fold cross-validation ===")
+    cv_models = get_baseline_models()
+    cv_df = run_kfold_cv(cv_models, X_train, y_train, n_splits=args.kfold)
+    cv_df.to_csv(os.path.join(METRICS_DIR, "kfold_cv_results.csv"), index=False)
+    print(cv_df.to_string(index=False))
+
+    # 8. Plots
     print("\n=== Generating plots ===")
     plot_speed_vs_performance(results_df)
     plot_scalability_curves(sweep_df)
     plot_loss_convergence(curves)
     plot_feature_importance_divergence(importances)
+    plot_kfold_cv(cv_df)
 
     print("\nAll done. Results saved to results/metrics/, figures saved to results/figures/")
 
